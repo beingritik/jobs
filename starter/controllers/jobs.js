@@ -1,9 +1,5 @@
 const { StatusCodes } = require("http-status-codes");
-const {
-  BadRequestError,
-  NotFoundError,
-  CustomAPIError
-} = require("../errors");
+const { BadRequestError, NotFoundError, CustomAPIError } = require("../errors");
 const job = require("../models/Job");
 
 //To create a job
@@ -25,13 +21,17 @@ const getAllJobs = async function (req, res) {
     const jobs = await job
       .find({ createdBy: req.user.userId })
       .sort("createdAt");
+    if (jobs == "") {
+      console.log("ritik");
+      res.status(StatusCodes.NOT_FOUND).json("No jobs created");
+    }
     res.status(StatusCodes.OK).json({ jobs, count: jobs.length });
   } catch (err) {
     console.log("error in getitng all are=", err.message);
   }
 };
 
-// to fetch a particular job 
+// to fetch a particular job
 const getSingleJob = async function (req, res) {
   const {
     user: { userId },
@@ -44,7 +44,7 @@ const getSingleJob = async function (req, res) {
       createdBy: userId,
     });
     if (!singleJob) {
-      throw new NotFoundError(`No job with id ${jobId}`);
+      res.status(StatusCodes.NOT_FOUND).json(`No job with this ${jobId}`);
     }
     res.status(StatusCodes.OK).json({ singleJob });
   } catch (err) {
@@ -60,13 +60,10 @@ const deleteJob = async function (req, res) {
       user: { userId },
       params: { id: jobId },
     } = req;
-    const deleteToBe = await job.findByIdAndRemove(
-      {
-        _id: jobId,
-        createdBy: userId,
-      }
-    );
-    console.log("deleteToBe=", deleteToBe);
+    const deleteToBe = await job.findByIdAndRemove({
+      _id: jobId,
+      createdBy: userId,
+    });
     if (!deleteToBe) {
       throw new NotFoundError("Id to be deleted not found.");
     }
@@ -77,27 +74,30 @@ const deleteJob = async function (req, res) {
 };
 
 //to update a job
-const updateJob = async function(req,res){
+const updateJob = async function (req, res) {
   console.log("updation of job starts", req.params.id);
-  try{
-  const {
-    body:{company,position},
-    params:{id:jobId},
-    user:{userId}
-  } = req;
-  if(company== ''|| position == ''){
-    throw new BadRequestError("Company and position fields cant be empty.")
+  try {
+    const {
+      body: { company, position },
+      params: { id: jobId },
+      user: { userId },
+    } = req;
+    if (company == "" || position == "") {
+      throw new BadRequestError("Company and position fields cant be empty.");
+    }
+    const updatedJob = await job.findByIdAndUpdate(
+      { _id: jobId, createdBy: userId },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!updatedJob) {
+      throw new NotFoundError(`No job with ${jobId}`);
+    }
+    res.status(StatusCodes.OK).json({ updatedJob });
+  } catch (err) {
+    console.log("error in updation is=", err.message);
   }
-  const updatedJob = await job.findByIdAndUpdate({_id:jobId,createdBy:userId},req.body,{new:true,runValidators:true})
-  if(!updatedJob){
-    throw new NotFoundError(`No job with ${jobId}`)
-  }
-  res.status(StatusCodes.OK).json({ updatedJob });
-  }
-  catch(err){
-    console.log("error in updation is=",err.message);
-  }
-}
+};
 
 module.exports = {
   createJob,
